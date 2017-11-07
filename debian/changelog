@@ -1,3 +1,9 @@
+python-typing (3.6.2-1kern1) xenial; urgency=medium
+
+  * build for KERN
+
+ -- KERN packaging <packaging@kernsuite.info>  Tue, 07 Nov 2017 14:01:39 +0200
+
 python-typing (3.6.2-1) unstable; urgency=medium
 
   * New upstream version 3.6.2
