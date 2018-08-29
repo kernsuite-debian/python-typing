@@ -2,8 +2,10 @@ from __future__ import absolute_import, unicode_literals
 
 import collections
 import contextlib
+import os
 import pickle
 import re
+import subprocess
 import sys
 from unittest import TestCase, main, SkipTest
 from copy import copy, deepcopy
@@ -1024,6 +1026,30 @@ class GenericTests(BaseTestCase):
             self.assertEqual(t, deepcopy(t))
             self.assertEqual(t, copy(t))
 
+    def test_copy_generic_instances(self):
+        T = TypeVar('T')
+        class C(Generic[T]):
+            def __init__(self, attr):
+                self.attr = attr
+
+        c = C(42)
+        self.assertEqual(copy(c).attr, 42)
+        self.assertEqual(deepcopy(c).attr, 42)
+        self.assertIsNot(copy(c), c)
+        self.assertIsNot(deepcopy(c), c)
+        c.attr = 1
+        self.assertEqual(copy(c).attr, 1)
+        self.assertEqual(deepcopy(c).attr, 1)
+        ci = C[int](42)
+        self.assertEqual(copy(ci).attr, 42)
+        self.assertEqual(deepcopy(ci).attr, 42)
+        self.assertIsNot(copy(ci), ci)
+        self.assertIsNot(deepcopy(ci), ci)
+        ci.attr = 1
+        self.assertEqual(copy(ci).attr, 1)
+        self.assertEqual(deepcopy(ci).attr, 1)
+        self.assertEqual(ci.__orig_class__, C[int])
+
     def test_weakref_all(self):
         T = TypeVar('T')
         things = [Any, Union[T, int], Callable[..., T], Tuple[Any, Any],
@@ -1204,6 +1230,76 @@ class GenericTests(BaseTestCase):
             D[Any]
         with self.assertRaises(Exception):
             D[T]
+
+    def test_new_with_args(self):
+
+        class A(Generic[T]):
+            pass
+
+        class B(object):
+            def __new__(cls, arg):
+                # call object.__new__
+                obj = super(B, cls).__new__(cls)
+                obj.arg = arg
+                return obj
+
+        # mro: C, A, Generic, B, object
+        class C(A, B):
+            pass
+
+        c = C('foo')
+        self.assertEqual(c.arg, 'foo')
+
+    def test_new_with_args2(self):
+
+        class A(object):
+            def __init__(self, arg):
+                self.from_a = arg
+                # call object
+                super(A, self).__init__()
+
+        # mro: C, Generic, A, object
+        class C(Generic[T], A):
+            def __init__(self, arg):
+                self.from_c = arg
+                # call Generic
+                super(C, self).__init__(arg)
+
+        c = C('foo')
+        self.assertEqual(c.from_a, 'foo')
+        self.assertEqual(c.from_c, 'foo')
+
+    def test_new_no_args(self):
+
+        class A(Generic[T]):
+            pass
+
+        with self.assertRaises(TypeError):
+            A('foo')
+
+        class B(object):
+            def __new__(cls):
+                # call object
+                obj = super(B, cls).__new__(cls)
+                obj.from_b = 'b'
+                return obj
+
+        # mro: C, A, Generic, B, object
+        class C(A, B):
+            def __init__(self, arg):
+                self.arg = arg
+
+            def __new__(cls, arg):
+                # call A
+                obj = super(C, cls).__new__(cls)
+                obj.from_c = 'c'
+                return obj
+
+        c = C('foo')
+        self.assertEqual(c.arg, 'foo')
+        self.assertEqual(c.from_b, 'b')
+        self.assertEqual(c.from_c, 'c')
+
 
 
 class ClassVarTests(BaseTestCase):
@@ -1871,6 +1967,16 @@ class AllTests(BaseTestCase):
             return x + 1
 
         self.assertIsNone(typing.get_type_hints(foo))
+
+    def test_typing_compiles_with_opt(self):
+        file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 'typing.py')
+        try:
+            subprocess.check_output('python -OO {}'.format(file_path),
+                                    stderr=subprocess.STDOUT,
+                                    shell=True)
+        except subprocess.CalledProcessError:
+            self.fail('Module does not compile with optimize=2 (-OO flag).')
 
 
 if __name__ == '__main__':
