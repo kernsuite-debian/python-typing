@@ -1,3 +1,16 @@
+python-typing (3.6.6-1) bionic; urgency=medium
+
+  [ Gijs Molenaar ]
+  * allow rebuild
+
+  [ Sébastien Delafond ]
+  * New upstream version 3.6.4
+
+  [ Gijs Molenaar ]
+  * New upstream version 3.6.6
+
+ -- KERN packaging <packaging@kernsuite.info>  Wed, 29 Aug 2018 19:43:56 +0200
+
 python-typing (3.6.2-1kern1) xenial; urgency=medium
 
   * build for KERN
